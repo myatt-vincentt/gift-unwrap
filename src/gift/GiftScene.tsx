@@ -1,0 +1,45 @@
+// Gift Unwrap: a wrapped present between your two hands. Your real hands
+// stay in front of the box (the hand cut-out), so your palms hold it.
+import { useEffect } from "react";
+import { useThree } from "@react-three/fiber";
+import { PMREMGenerator } from "three";
+// eslint-disable-next-line import/extensions
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { HandCutout, HandTracker } from "@vincentt-xr/sdk/tracking";
+
+import { Gift } from "./Gift";
+import { Hint } from "./Hint";
+
+/** Soft studio reflections for the glossy paper and the satin ribbon. */
+const useStudioLight = () => {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    const pmrem = new PMREMGenerator(gl);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const before = scene.environment;
+    scene.environment = env;
+    scene.environmentIntensity = 0.6;
+    return () => {
+      scene.environment = before;
+      env.dispose();
+      pmrem.dispose();
+    };
+  }, [gl, scene]);
+};
+
+export const GiftScene = () => {
+  useStudioLight();
+  return (
+    <>
+      <ambientLight intensity={0.35} />
+      <directionalLight position={[2, 4, 5]} intensity={1.6} />
+      <directionalLight position={[-3, 1, 2]} intensity={0.5} color="#ffe2c4" />
+      <HandTracker>
+        <HandCutout />
+      </HandTracker>
+      <Gift />
+      <Hint />
+    </>
+  );
+};

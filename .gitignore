@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+.vincentt/
+.opencode/
+opencode.json
+.env
+.env.local
+.env.*.local
+*.log
+.dev/
+
+# Optional local preview clips (see dev-media/README.md)
+dev-media/*.mp4
+dev-media/*.mov
