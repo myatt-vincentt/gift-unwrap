@@ -10,6 +10,7 @@ import { HandCutout, HandTracker } from "@vincentt-xr/sdk/tracking";
 import { Confetti } from "./Confetti";
 import { Gift } from "./Gift";
 import { Hint } from "./Hint";
+import { Record } from "./Record";
 import { Scraps } from "./Scraps";
 import { SnowCloud } from "./SnowCloud";
 import { gift, onInside } from "./state";
@@ -53,6 +54,7 @@ export const GiftScene = () => {
       {inside === "snow" ? <SnowCloud /> : null}
       <Hint />
       <TapToShake />
+      <Record />
     </>
   );
 };

@@ -10,6 +10,8 @@ import type { Inside } from "./state";
 let ctx: AudioContext | null = null;
 let out: GainNode | null = null;
 let noise: AudioBuffer | null = null;
+/** Where recordings listen (made on the first recording). */
+let tap: MediaStreamAudioDestinationNode | null = null;
 
 const audio = () => {
   if (ctx) return ctx;
@@ -198,4 +200,18 @@ export const playTear = () => {
   });
   // The lid's pop: a quick rising "plop".
   tone(c, at + 0.08, { from: 220, to: 520, dur: 0.12, gain: 0.35 });
+};
+
+/**
+ * The present's own sounds as a stream, for a recording (never the
+ * microphone). Null when sound isn't available.
+ */
+export const soundStream = (): MediaStream | null => {
+  const c = audio();
+  if (!c || !out) return null;
+  if (!tap) {
+    tap = c.createMediaStreamDestination();
+    out.connect(tap);
+  }
+  return tap.stream;
 };

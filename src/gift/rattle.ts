@@ -23,6 +23,8 @@ const TAP_SHAKE = [
 const queue: { t: number; strength: number; dx: number }[] = [];
 
 export const tapShake = () => {
+  // Only a wrapped box rattles (an open one has nothing left to shake).
+  if (gift.phase !== "wrapped") return;
   const now = performance.now() / 1000;
   // A tap during a tap-shake restarts it.
   queue.length = 0;
@@ -33,6 +35,8 @@ export const tapShake = () => {
 
 /** Plays the queued rattles that are due (call every frame). */
 export const playDueRattles = (now: number) => {
+  // A box torn mid-shake drops the rest of the shake.
+  if (gift.phase !== "wrapped") queue.length = 0;
   while (queue.length && queue[0].t <= now) {
     const r = queue.shift()!;
     rattle(r.strength, r.dx, 0);

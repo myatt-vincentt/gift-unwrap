@@ -148,7 +148,7 @@ export const Gift = () => {
       tearMeter.current.reset();
       if (now - gift.seenAt > HOLD.letGo) setMode("rest", now);
     }
-    if (gift.phase === "wrapped") playDueRattles(now);
+    playDueRattles(now);
     if (gift.tearAsked) {
       gift.tearAsked = false;
       if (gift.phase === "wrapped" && now - gift.bornAt > GROW_IN)

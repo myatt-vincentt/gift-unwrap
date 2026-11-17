@@ -1,8 +1,8 @@
 {
-  "title": "XR App - Vincentt",
-  "description": "An AR experience built with Vincentt",
+  "title": "Gift Unwrap",
+  "description": "Hold a present between your hands, shake it to guess, pull it apart to tear it open: a puppy, confetti or a snow cloud is inside.",
   "image": "/images/og-default.jpg",
-  "imageAlt": "Vincentt — Augmented Reality App builder",
+  "imageAlt": "A wrapped Christmas present held between two hands in a selfie camera",
   "imageWidth": 1200,
   "imageHeight": 630,
   "imageType": "image/jpeg"
