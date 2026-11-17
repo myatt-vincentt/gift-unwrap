@@ -49,8 +49,19 @@ export const setMode = (mode: typeof gift.mode, now: number) => {
 };
 
 /** A new secret for the next box (never the same twice in a row). */
+const insideListeners = new Set<(i: Inside) => void>();
+export const onInside = (fn: (i: Inside) => void) => {
+  insideListeners.add(fn);
+  return () => {
+    insideListeners.delete(fn);
+  };
+};
+export const setInside = (i: Inside) => {
+  gift.inside = i;
+  insideListeners.forEach((fn) => fn(i));
+};
 export const newInside = () => {
-  gift.inside = pickInside(gift.inside);
+  setInside(pickInside(gift.inside));
   gift.hits = 0;
 };
 

@@ -11,10 +11,12 @@
 // Tear it: pull your hands apart quickly (tear.ts), or pinch out on the
 // screen. The ribbon snaps, the paper flies off in scraps and the lid pops
 // away (Scraps.tsx); the plain box stays in your hands, tissue peeking out.
-// A moment later a new box in the next paper grows in.
-import { useEffect, useRef, useState } from "react";
+// The surprise comes out (the puppy peeks out of the box, confetti bursts
+// up, or a snow cloud floats up over your head); then the open box shrinks
+// away and a new box in the next paper grows in.
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Group, PerspectiveCamera } from "three";
+import { Group, PerspectiveCamera, Vector3 } from "three";
 import { XRModel } from "@vincentt-xr/sdk";
 import {
   useXRModelNode,
@@ -24,16 +26,21 @@ import { handPoseToScene } from "@vincentt-xr/sdk/tracking";
 
 import { approach, HOLD, holdBetween, palmCentre, restPlace } from "./hold";
 import { PAPERS } from "./paper";
-import { LID_Y, Present } from "./Present";
+import { burstConfetti } from "./Confetti";
+import { BOX, LID_Y, Present } from "./Present";
+import { Puppy } from "./Puppy";
+import { releaseCloud } from "./SnowCloud";
 import { playTear } from "./audio";
 import { playDueRattles, rattle } from "./rattle";
 import { flyApart } from "./Scraps";
 import { ShakeMeter } from "./shake";
 import { gift, newInside, nextPaper, onPaper, setMode } from "./state";
 import { gapOf, TearMeter } from "./tear";
+import { viewAtHands } from "./view";
 
-/** The open box stays this long (s) before the next box comes. */
-const OPEN_FOR = 2.5;
+/** The open box and its surprise stay this long (s); the box shrinks away at the end. */
+const OPEN_FOR = 4.6;
+const SHRINK = 0.35;
 /** A new box grows in over this long (s), easing out. */
 const GROW_IN = 0.45;
 
@@ -51,12 +58,6 @@ const JOLT = {
 /** The box's fixed turn toward you: top tipped forward, one side showing. */
 const TILT = 0.32;
 const TURN = -0.38;
-
-/** The screen's size (units) at the hand plane (z = 0). */
-export const viewAtHands = (camera: PerspectiveCamera) => {
-  const h = 2 * camera.position.z * Math.tan((camera.fov * Math.PI) / 360);
-  return { w: h * camera.aspect, h };
-};
 
 export const Gift = () => {
   const node = useXRModelNode<XRModelNodeHandTracking>(XRModel.HAND_TRACKER);
@@ -92,6 +93,10 @@ export const Gift = () => {
     });
     openWidth.current = Math.min(gift.at.width, calmWidth.current);
     playTear();
+    // The surprise comes out of the opening.
+    const top = i.localToWorld(new Vector3(0, BOX.height / 2, 0));
+    if (gift.inside === "confetti") burstConfetti(top, gift.at.width);
+    if (gift.inside === "snow") releaseCloud(top, openWidth.current);
     gift.phase = "open";
     gift.openedAt = now;
     meter.current.reset();
@@ -177,7 +182,16 @@ export const Gift = () => {
     if (!o || !i) return;
     o.position.set(gift.at.x, gift.at.y, 0);
     o.rotation.set(0, 0, gift.at.roll);
-    o.scale.setScalar(gift.at.width * easeOut((now - gift.bornAt) / GROW_IN));
+    const leaving =
+      gift.phase === "open"
+        ? 1 - easeOut((now - gift.openedAt - (OPEN_FOR - SHRINK)) / SHRINK)
+        : 1;
+    o.scale.setScalar(
+      Math.max(
+        1e-4,
+        gift.at.width * easeOut((now - gift.bornAt) / GROW_IN) * leaving,
+      ),
+    );
     // Resting: a gentle sway and bob, so it looks alive while it waits.
     const t = clock.elapsedTime;
     sway.current +=
@@ -208,6 +222,11 @@ export const Gift = () => {
     <group ref={outer}>
       <group ref={inner}>
         <Present paper={PAPERS[paper]} opened={opened} />
+        {opened && gift.inside === "puppy" ? (
+          <Suspense fallback={null}>
+            <Puppy />
+          </Suspense>
+        ) : null}
       </group>
     </group>
   );

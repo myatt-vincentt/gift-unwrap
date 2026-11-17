@@ -14,8 +14,8 @@ import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
 
-import { viewAtHands } from "./Gift";
-import { gift, INSIDES, nextPaper } from "./state";
+import { viewAtHands } from "./view";
+import { gift, INSIDES, nextPaper, setInside } from "./state";
 
 const DevGift = () => {
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
@@ -26,10 +26,8 @@ const DevGift = () => {
     const el = gl.domElement;
     const fake = { down: false, x: 0, y: 0, gap: 1.6, tilt: 0 };
     const place = () => {
-      if (!fake.down) {
-        gift.fake = null;
-        return;
-      }
+      // Only while the mouse holds the box (fakes set from the console stay).
+      if (!fake.down) return;
       const dx = (Math.cos(fake.tilt) * fake.gap) / 2;
       const dy = (Math.sin(fake.tilt) * fake.gap) / 2;
       gift.fake = {
@@ -55,8 +53,9 @@ const DevGift = () => {
       place();
     };
     const up = () => {
+      if (!fake.down) return;
       fake.down = false;
-      place();
+      gift.fake = null;
     };
     const wheel = (e: WheelEvent) => {
       fake.gap = Math.min(4, Math.max(0.3, fake.gap - e.deltaY * 0.003));
@@ -67,7 +66,7 @@ const DevGift = () => {
       if (e.key === "t" || e.key === "T") gift.tearAsked = true;
       if (e.key === "i" || e.key === "I") {
         const i = INSIDES.indexOf(gift.inside);
-        gift.inside = INSIDES[(i + 1) % INSIDES.length];
+        setInside(INSIDES[(i + 1) % INSIDES.length]);
       }
       if (e.key === "q") fake.tilt += 0.1;
       if (e.key === "e") fake.tilt -= 0.1;
@@ -84,6 +83,7 @@ const DevGift = () => {
       fake,
       place,
       scene,
+      setInside,
     };
     return () => {
       window.removeEventListener("pointerdown", down);
