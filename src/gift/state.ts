@@ -3,6 +3,15 @@
 import { PAPERS } from "./paper";
 import type { Place, V2 } from "./hold";
 
+/** What a box can hold. Each rattles differently. */
+export const INSIDES = ["puppy", "confetti", "snow"] as const;
+export type Inside = (typeof INSIDES)[number];
+
+const pickInside = (not?: Inside): Inside => {
+  const choices = INSIDES.filter((i) => i !== not);
+  return choices[Math.floor(Math.random() * choices.length)];
+};
+
 export const gift = {
   /** "rest": waiting low on the screen; "held": between your palms. */
   mode: "rest" as "rest" | "held",
@@ -16,6 +25,12 @@ export const gift = {
   palms: { left: null as V2 | null, right: null as V2 | null },
   /** When both hands were last seen holding (s). */
   seenAt: -1e9,
+  /** What's inside this box (secret until it opens). */
+  inside: pickInside(),
+  /** The last rattle: when (s), how hard (0..1), and which way it swung. */
+  hit: { t: -1e9, strength: 0, dx: 0, dy: 0 },
+  /** How many rattles this box has had. */
+  hits: 0,
   /** Dev only: fake palms in place of the tracker. */
   fake: null as { left: V2; right: V2 } | null,
 };
@@ -24,6 +39,12 @@ export const setMode = (mode: typeof gift.mode, now: number) => {
   if (gift.mode === mode) return;
   gift.mode = mode;
   gift.since = now;
+};
+
+/** A new secret for the next box (never the same twice in a row). */
+export const newInside = () => {
+  gift.inside = pickInside(gift.inside);
+  gift.hits = 0;
 };
 
 /** Listeners for a new paper (the box re-dresses itself). */

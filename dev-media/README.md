@@ -13,5 +13,6 @@ listed first and used as the start. Clips here are git-ignored. Restart
 `pnpm dev` after adding or removing one.
 
 No sample holds two palms apart, so the dev-only driver (`src/gift/DevGift.tsx`)
-holds the box with the mouse: press and drag, scroll to change the gap, Q / E to
-tilt, N for the next paper.
+holds the box with the mouse: Shift + press and drag (drag quickly to shake),
+scroll to change the gap, Q / E to tilt, N for the next paper, I for what's
+inside. A plain click is a tap, which shakes the box.

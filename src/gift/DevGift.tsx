@@ -1,8 +1,10 @@
 // Development only: try the present without a camera.
 //
-//   Hold the mouse button down on the picture: two fake palms hold the box
-//   around the pointer. Scroll to move them apart / together; Q / E tilt.
+//   Shift + hold the mouse button on the picture: two fake palms hold the
+//   box around the pointer (drag quickly to shake it). Scroll to move them
+//   apart / together; Q / E tilt. A plain click is a tap (shakes the box).
 //   N                 the next paper
+//   I                 what's inside next (puppy → confetti → snow)
 //   window.__gift     the shared state
 //
 // Never reaches production: Scene.tsx lazy-imports this behind an inline
@@ -12,7 +14,7 @@ import { useThree } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
 
 import { viewAtHands } from "./Gift";
-import { gift, nextPaper } from "./state";
+import { gift, INSIDES, nextPaper } from "./state";
 
 const DevGift = () => {
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
@@ -40,6 +42,7 @@ const DevGift = () => {
       fake.y = (0.5 - (e.clientY - r.top) / r.height) * v.h;
     };
     const down = (e: PointerEvent) => {
+      if (!e.shiftKey) return;
       fake.down = true;
       toScene(e);
       place();
@@ -59,14 +62,18 @@ const DevGift = () => {
     };
     const key = (e: KeyboardEvent) => {
       if (e.key === "n" || e.key === "N") nextPaper();
+      if (e.key === "i" || e.key === "I") {
+        const i = INSIDES.indexOf(gift.inside);
+        gift.inside = INSIDES[(i + 1) % INSIDES.length];
+      }
       if (e.key === "q") fake.tilt += 0.1;
       if (e.key === "e") fake.tilt -= 0.1;
       place();
     };
-    el.addEventListener("pointerdown", down);
+    window.addEventListener("pointerdown", down);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
-    el.addEventListener("wheel", wheel, { passive: true });
+    window.addEventListener("wheel", wheel, { passive: true });
     window.addEventListener("keydown", key);
     (window as unknown as { __gift: unknown }).__gift = {
       gift,
@@ -75,10 +82,10 @@ const DevGift = () => {
       place,
     };
     return () => {
-      el.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerdown", down);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      el.removeEventListener("wheel", wheel);
+      window.removeEventListener("wheel", wheel);
       window.removeEventListener("keydown", key);
     };
   }, [camera, gl]);

@@ -3,9 +3,13 @@
 // (or one) for a moment → it floats back to its resting spot, low in the
 // middle, and sways gently while it waits. It always shows a little of its
 // top and one side, so it reads as a box.
+//
+// Shake it: each quick turn of your hands rattles what's inside (shake.ts);
+// the box jolts the way it swung and the lid hops. A tap anywhere does a
+// short shake too (rattle.ts).
 import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Group, PerspectiveCamera } from "three";
+import { Group, PerspectiveCamera, type Object3D } from "three";
 import { XRModel } from "@vincentt-xr/sdk";
 import {
   useXRModelNode,
@@ -15,8 +19,19 @@ import { handPoseToScene } from "@vincentt-xr/sdk/tracking";
 
 import { approach, HOLD, holdBetween, palmCentre, restPlace } from "./hold";
 import { PAPERS } from "./paper";
-import { Present } from "./Present";
+import { LID_Y, Present } from "./Present";
+import { playDueRattles, rattle } from "./rattle";
+import { ShakeMeter } from "./shake";
 import { gift, onPaper, setMode } from "./state";
+
+/** A rattle's jolt: how far the box moves and turns (box widths, radians). */
+const JOLT = {
+  move: 0.07,
+  turn: 0.14,
+  lid: 0.07,
+  settle: 9,
+  rate: 36,
+} as const;
 
 /** The box's fixed turn toward you: top tipped forward, one side showing. */
 const TILT = 0.32;
@@ -35,6 +50,10 @@ export const Gift = () => {
   const inner = useRef<Group>(null);
   /** How much of the resting sway shows (eases in and out with the mode). */
   const sway = useRef(1);
+  const meter = useRef(new ShakeMeter());
+  /** The last held reading pushed to the shake meter. */
+  const lastHeld = useRef({ x: NaN, y: NaN });
+  const lid = useRef<Object3D | null>(null);
   const [paper, setPaper] = useState(gift.paper);
   useEffect(() => onPaper(setPaper), []);
 
@@ -54,7 +73,19 @@ export const Gift = () => {
     if (held) {
       gift.seenAt = now;
       setMode("held", now);
-    } else if (now - gift.seenAt > HOLD.letGo) setMode("rest", now);
+      // Each new reading of your hands goes to the shake meter.
+      const last = lastHeld.current;
+      if (held.x !== last.x || held.y !== last.y) {
+        last.x = held.x;
+        last.y = held.y;
+        const hit = meter.current.push(now, held.x, held.y, held.width);
+        if (hit) rattle(hit.strength, hit.dx, hit.dy);
+      }
+    } else {
+      meter.current.reset();
+      if (now - gift.seenAt > HOLD.letGo) setMode("rest", now);
+    }
+    playDueRattles(now);
 
     const view = viewAtHands(camera);
     if (gift.mode === "held" && held)
@@ -73,8 +104,25 @@ export const Gift = () => {
     sway.current +=
       ((gift.mode === "rest" ? 1 : 0) - sway.current) * (1 - Math.exp(-6 * dt));
     const rest = sway.current;
-    i.rotation.set(TILT, TURN + rest * Math.sin(t * 0.9) * 0.22, 0);
-    i.position.y = rest * Math.sin(t * 1.6) * 0.025;
+    // The last rattle's jolt: a quick shudder the way it swung, dying away.
+    const age = now - gift.hit.t;
+    const k = gift.hit.strength * Math.exp(-age * JOLT.settle);
+    const shudder = k * Math.sin(age * JOLT.rate);
+    i.rotation.set(
+      TILT + gift.hit.dy * shudder * JOLT.turn * 0.6,
+      TURN + rest * Math.sin(t * 0.9) * 0.22,
+      -gift.hit.dx * shudder * JOLT.turn,
+    );
+    i.position.set(
+      gift.hit.dx * shudder * JOLT.move,
+      rest * Math.sin(t * 1.6) * 0.025 + gift.hit.dy * shudder * JOLT.move,
+      0,
+    );
+    // The lid hops on each rattle and drops back.
+    if (!lid.current) lid.current = i.getObjectByName("lid") ?? null;
+    if (lid.current)
+      lid.current.position.y =
+        LID_Y + JOLT.lid * k * Math.abs(Math.sin(age * JOLT.rate * 0.5));
   });
 
   return (

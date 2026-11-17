@@ -122,11 +122,14 @@ const usePaperMaterials = (paper: Paper) =>
     return { paperMat, ribbonMat };
   }, [paper]);
 
+/** Where the lid sits on the box (one unit wide). */
+export const LID_Y = BOX.height / 2 + BOX.lidHeight / 2 - 0.02;
+
 export const Present = ({ paper }: { paper: Paper }) => {
   const g = useGeometry();
   const { paperMat, ribbonMat } = usePaperMaterials(paper);
-  const { height: h, lidHeight: lh } = BOX;
-  const lidY = h / 2 + lh / 2 - 0.02;
+  const { lidHeight: lh } = BOX;
+  const lidY = LID_Y;
   return (
     <group name="present">
       <group name="box">
