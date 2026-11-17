@@ -168,3 +168,34 @@ export const playRattle = (inside: Inside, strength: number) => {
     });
   }
 };
+
+/**
+ * The tear: a ribbon snap, then a long papery rip (noise grains sweeping
+ * down in pitch), and the lid's pop.
+ */
+export const playTear = () => {
+  const c = audio();
+  if (!c || c.state !== "running") return;
+  const at = c.currentTime + 0.005;
+  // Ribbon snap: a bright click.
+  burst(c, at, {
+    freq: 5000,
+    q: 2,
+    type: "bandpass",
+    dur: 0.03,
+    gain: 0.5,
+  });
+  // Rip: 26 grains over 0.4 s, from bright to duller, loud then fading.
+  Array.from({ length: 26 }).forEach((_, i) => {
+    const k = i / 25;
+    burst(c, at + 0.03 + k * 0.4 + Math.random() * 0.01, {
+      freq: 4200 - 2600 * k + Math.random() * 600,
+      q: 1.4,
+      type: "bandpass",
+      dur: 0.025 + Math.random() * 0.03,
+      gain: 0.55 * (1 - 0.7 * k),
+    });
+  });
+  // The lid's pop: a quick rising "plop".
+  tone(c, at + 0.08, { from: 220, to: 520, dur: 0.12, gain: 0.35 });
+};

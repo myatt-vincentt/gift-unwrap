@@ -6,6 +6,8 @@ import {
   BoxGeometry,
   BufferGeometry,
   Color,
+  IcosahedronGeometry,
+  MeshBasicMaterial,
   MeshPhysicalMaterial,
   TorusGeometry,
   SphereGeometry,
@@ -88,6 +90,8 @@ const useGeometry = () =>
     loop.scale(1, 1, 2.1);
     const tail = new BoxGeometry(0.075, 0.012, 0.24);
     const knot = new SphereGeometry(0.065, 20, 14);
+    // A crumpled tissue puff: a low, faceted ball.
+    const puff = new IcosahedronGeometry(1, 1);
     knot.scale(1, 0.8, 1);
     return {
       body,
@@ -99,6 +103,7 @@ const useGeometry = () =>
       loop,
       tail,
       knot,
+      puff,
     };
   }, []);
 
@@ -125,54 +130,121 @@ const usePaperMaterials = (paper: Paper) =>
 /** Where the lid sits on the box (one unit wide). */
 export const LID_Y = BOX.height / 2 + BOX.lidHeight / 2 - 0.02;
 
-export const Present = ({ paper }: { paper: Paper }) => {
+/** The opened box: plain glossy card, a dark opening and tissue paper peeking out. */
+const useOpenMaterials = (paper: Paper) =>
+  useMemo(
+    () => ({
+      card: new MeshPhysicalMaterial({
+        color: new Color("#fbf3e6"),
+        roughness: 0.45,
+        clearcoat: 0.5,
+        clearcoatRoughness: 0.3,
+      }),
+      hole: new MeshBasicMaterial({ color: new Color("#5a3b2a") }),
+      tissue: new MeshPhysicalMaterial({
+        color: new Color(paper.base).lerp(new Color("#ffffff"), 0.35),
+        roughness: 0.8,
+        flatShading: true,
+      }),
+    }),
+    [paper],
+  );
+
+/** The lid with its ribbon and bow (also flies off on its own when torn). */
+export const Lid = ({ paper }: { paper: Paper }) => {
   const g = useGeometry();
   const { paperMat, ribbonMat } = usePaperMaterials(paper);
   const { lidHeight: lh } = BOX;
-  const lidY = LID_Y;
   return (
-    <group name="present">
+    <>
+      <mesh geometry={g.lid} material={paperMat} />
+      <mesh geometry={g.bandLidX} material={ribbonMat} />
+      <mesh geometry={g.bandLidZ} material={ribbonMat} />
+      <group name="bow" position={[0, lh / 2 + 0.02, 0]}>
+        {/* Loops lean out to the sides and tip up a little. */}
+        <mesh
+          geometry={g.loop}
+          material={ribbonMat}
+          position={[0.02, 0.05, 0]}
+          rotation={[0, 0.25, 0.42]}
+        />
+        <mesh
+          geometry={g.loop}
+          material={ribbonMat}
+          position={[-0.02, 0.05, 0]}
+          rotation={[0, Math.PI - 0.25, 0.42]}
+        />
+        <mesh
+          geometry={g.tail}
+          material={ribbonMat}
+          position={[-0.06, -0.005, 0.13]}
+          rotation={[0, 0.5, 0]}
+        />
+        <mesh
+          geometry={g.tail}
+          material={ribbonMat}
+          position={[0.06, -0.005, 0.13]}
+          rotation={[0, -0.5, 0]}
+        />
+        <mesh geometry={g.knot} material={ribbonMat} position={[0, 0.03, 0]} />
+      </group>
+    </>
+  );
+};
+
+/** Where the tissue paper puffs sit in the opening (one unit wide). */
+const TISSUE = [
+  { at: [-0.3, 0.03, -0.2], s: [0.14, 0.08, 0.11], r: 0.3 },
+  { at: [0.28, 0.04, -0.18], s: [0.15, 0.09, 0.12], r: 1.1 },
+  { at: [-0.3, 0.02, 0.22], s: [0.12, 0.06, 0.1], r: 2.0 },
+  { at: [0.33, 0.02, 0.24], s: [0.11, 0.06, 0.09], r: 2.7 },
+] as const;
+
+export const Present = ({
+  paper,
+  opened = false,
+}: {
+  paper: Paper;
+  opened?: boolean;
+}) => {
+  const g = useGeometry();
+  const { paperMat, ribbonMat } = usePaperMaterials(paper);
+  const open = useOpenMaterials(paper);
+  const { width: w, height: h, depth: d } = BOX;
+  if (opened)
+    return (
+      <group name="present" key="open">
+        <group name="box">
+          <mesh geometry={g.body} material={open.card} />
+          <mesh
+            material={open.hole}
+            position={[0, h / 2 + 0.002, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <planeGeometry args={[w - 0.07, d - 0.07]} />
+          </mesh>
+          {TISSUE.map((t) => (
+            <mesh
+              key={t.r}
+              geometry={g.puff}
+              material={open.tissue}
+              position={[t.at[0], h / 2 + t.at[1], t.at[2]]}
+              rotation={[0.2, t.r, 0.1]}
+              scale={[t.s[0], t.s[1], t.s[2]]}
+            />
+          ))}
+        </group>
+      </group>
+    );
+  return (
+    <group name="present" key="wrapped">
       <group name="box">
         <mesh geometry={g.body} material={paperMat} />
         <mesh geometry={g.bandBodyX} material={ribbonMat} />
         <mesh geometry={g.bandBodyZ} material={ribbonMat} />
       </group>
-      <group name="lid" position={[0, lidY, 0]}>
-        <mesh geometry={g.lid} material={paperMat} />
-        <mesh geometry={g.bandLidX} material={ribbonMat} />
-        <mesh geometry={g.bandLidZ} material={ribbonMat} />
-        <group name="bow" position={[0, lh / 2 + 0.02, 0]}>
-          {/* Loops lean out to the sides and tip up a little. */}
-          <mesh
-            geometry={g.loop}
-            material={ribbonMat}
-            position={[0.02, 0.05, 0]}
-            rotation={[0, 0.25, 0.42]}
-          />
-          <mesh
-            geometry={g.loop}
-            material={ribbonMat}
-            position={[-0.02, 0.05, 0]}
-            rotation={[0, Math.PI - 0.25, 0.42]}
-          />
-          <mesh
-            geometry={g.tail}
-            material={ribbonMat}
-            position={[-0.06, -0.005, 0.13]}
-            rotation={[0, 0.5, 0]}
-          />
-          <mesh
-            geometry={g.tail}
-            material={ribbonMat}
-            position={[0.06, -0.005, 0.13]}
-            rotation={[0, -0.5, 0]}
-          />
-          <mesh
-            geometry={g.knot}
-            material={ribbonMat}
-            position={[0, 0.03, 0]}
-          />
-        </group>
+      <group name="lid" position={[0, LID_Y, 0]}>
+        <Lid paper={paper} />
       </group>
     </group>
   );

@@ -9,6 +9,7 @@ import { HandCutout, HandTracker } from "@vincentt-xr/sdk/tracking";
 
 import { Gift } from "./Gift";
 import { Hint } from "./Hint";
+import { Scraps } from "./Scraps";
 import { TapToShake } from "./TapToShake";
 
 /** Soft studio reflections for the glossy paper and the satin ribbon. */
@@ -40,6 +41,7 @@ export const GiftScene = () => {
         <HandCutout />
       </HandTracker>
       <Gift />
+      <Scraps />
       <Hint />
       <TapToShake />
     </>

@@ -5,6 +5,7 @@
 //   apart / together; Q / E tilt. A plain click is a tap (shakes the box).
 //   N                 the next paper
 //   I                 what's inside next (puppy → confetti → snow)
+//   T                 tear it open (also: Shift-drag and pull apart with the wheel)
 //   window.__gift     the shared state
 //
 // Never reaches production: Scene.tsx lazy-imports this behind an inline
@@ -19,6 +20,7 @@ import { gift, INSIDES, nextPaper } from "./state";
 const DevGift = () => {
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
   const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -62,6 +64,7 @@ const DevGift = () => {
     };
     const key = (e: KeyboardEvent) => {
       if (e.key === "n" || e.key === "N") nextPaper();
+      if (e.key === "t" || e.key === "T") gift.tearAsked = true;
       if (e.key === "i" || e.key === "I") {
         const i = INSIDES.indexOf(gift.inside);
         gift.inside = INSIDES[(i + 1) % INSIDES.length];
@@ -80,6 +83,7 @@ const DevGift = () => {
       nextPaper,
       fake,
       place,
+      scene,
     };
     return () => {
       window.removeEventListener("pointerdown", down);
@@ -88,7 +92,7 @@ const DevGift = () => {
       window.removeEventListener("wheel", wheel);
       window.removeEventListener("keydown", key);
     };
-  }, [camera, gl]);
+  }, [camera, gl, scene]);
   return null;
 };
 

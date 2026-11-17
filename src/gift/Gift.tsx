@@ -7,9 +7,14 @@
 // Shake it: each quick turn of your hands rattles what's inside (shake.ts);
 // the box jolts the way it swung and the lid hops. A tap anywhere does a
 // short shake too (rattle.ts).
+//
+// Tear it: pull your hands apart quickly (tear.ts), or pinch out on the
+// screen. The ribbon snaps, the paper flies off in scraps and the lid pops
+// away (Scraps.tsx); the plain box stays in your hands, tissue peeking out.
+// A moment later a new box in the next paper grows in.
 import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Group, PerspectiveCamera, type Object3D } from "three";
+import { Group, PerspectiveCamera } from "three";
 import { XRModel } from "@vincentt-xr/sdk";
 import {
   useXRModelNode,
@@ -20,9 +25,19 @@ import { handPoseToScene } from "@vincentt-xr/sdk/tracking";
 import { approach, HOLD, holdBetween, palmCentre, restPlace } from "./hold";
 import { PAPERS } from "./paper";
 import { LID_Y, Present } from "./Present";
+import { playTear } from "./audio";
 import { playDueRattles, rattle } from "./rattle";
+import { flyApart } from "./Scraps";
 import { ShakeMeter } from "./shake";
-import { gift, onPaper, setMode } from "./state";
+import { gift, newInside, nextPaper, onPaper, setMode } from "./state";
+import { gapOf, TearMeter } from "./tear";
+
+/** The open box stays this long (s) before the next box comes. */
+const OPEN_FOR = 2.5;
+/** A new box grows in over this long (s), easing out. */
+const GROW_IN = 0.45;
+
+const easeOut = (k: number) => 1 - (1 - Math.min(1, Math.max(0, k))) ** 3;
 
 /** A rattle's jolt: how far the box moves and turns (box widths, radians). */
 const JOLT = {
@@ -52,9 +67,37 @@ export const Gift = () => {
   const sway = useRef(1);
   const meter = useRef(new ShakeMeter());
   /** The last held reading pushed to the shake meter. */
-  const lastHeld = useRef({ x: NaN, y: NaN });
-  const lid = useRef<Object3D | null>(null);
+  const lastHeld = useRef({ lx: NaN, ly: NaN, rx: NaN, ry: NaN });
+  const tearMeter = useRef(new TearMeter());
+  /**
+   * The box's width followed slowly: the size it had before a quick pull.
+   * The open box keeps that size (a pull apart opens it, it doesn't grow it).
+   */
+  const calmWidth = useRef(gift.at.width);
+  const openWidth = useRef(gift.at.width);
   const [paper, setPaper] = useState(gift.paper);
+  const [opened, setOpened] = useState(false);
+
+  /** Rip the box open: pieces fly from where the box is right now. */
+  const tearOpen = (now: number) => {
+    const i = inner.current;
+    const lidObj = i?.getObjectByName("lid");
+    if (!i || !lidObj) return;
+    i.updateWorldMatrix(true, true);
+    flyApart({
+      box: i.matrixWorld.clone(),
+      lid: lidObj.matrixWorld.clone(),
+      width: gift.at.width,
+      paper: gift.paper,
+    });
+    openWidth.current = Math.min(gift.at.width, calmWidth.current);
+    playTear();
+    gift.phase = "open";
+    gift.openedAt = now;
+    meter.current.reset();
+    tearMeter.current.reset();
+    setOpened(true);
+  };
   useEffect(() => onPaper(setPaper), []);
 
   useFrame(({ clock }, delta) => {
@@ -74,31 +117,67 @@ export const Gift = () => {
       gift.seenAt = now;
       setMode("held", now);
       // Each new reading of your hands goes to the shake meter.
+      // (A new reading moves either palm; a pull apart keeps the centre still.)
       const last = lastHeld.current;
-      if (held.x !== last.x || held.y !== last.y) {
-        last.x = held.x;
-        last.y = held.y;
-        const hit = meter.current.push(now, held.x, held.y, held.width);
-        if (hit) rattle(hit.strength, hit.dx, hit.dy);
+      if (
+        left!.x !== last.lx ||
+        left!.y !== last.ly ||
+        right!.x !== last.rx ||
+        right!.y !== last.ry
+      ) {
+        Object.assign(last, {
+          lx: left!.x,
+          ly: left!.y,
+          rx: right!.x,
+          ry: right!.y,
+        });
+        if (gift.phase === "wrapped") {
+          const hit = meter.current.push(now, held.x, held.y, held.width);
+          if (hit) rattle(hit.strength, hit.dx, hit.dy);
+          if (tearMeter.current.push(now, gapOf(left!, right!)))
+            gift.tearAsked = true;
+        }
       }
     } else {
       meter.current.reset();
+      tearMeter.current.reset();
       if (now - gift.seenAt > HOLD.letGo) setMode("rest", now);
     }
-    playDueRattles(now);
+    if (gift.phase === "wrapped") playDueRattles(now);
+    if (gift.tearAsked) {
+      gift.tearAsked = false;
+      if (gift.phase === "wrapped" && now - gift.bornAt > GROW_IN)
+        tearOpen(now);
+    }
+    // The next box: a new secret inside and the next paper.
+    if (gift.phase === "open" && now - gift.openedAt > OPEN_FOR) {
+      newInside();
+      nextPaper();
+      gift.phase = "wrapped";
+      gift.bornAt = now;
+      gift.hit = { t: -1e9, strength: 0, dx: 0, dy: 0 };
+      setOpened(false);
+    }
 
     const view = viewAtHands(camera);
     if (gift.mode === "held" && held)
-      gift.at = approach(gift.at, held, HOLD.follow, dt);
+      gift.at = approach(
+        gift.at,
+        gift.phase === "open" ? { ...held, width: openWidth.current } : held,
+        HOLD.follow,
+        dt,
+      );
     else if (gift.mode === "rest")
       gift.at = approach(gift.at, restPlace(view.w, view.h), HOLD.settle, dt);
 
+    calmWidth.current +=
+      (gift.at.width - calmWidth.current) * (1 - Math.exp(-3 * dt));
     const o = outer.current;
     const i = inner.current;
     if (!o || !i) return;
     o.position.set(gift.at.x, gift.at.y, 0);
     o.rotation.set(0, 0, gift.at.roll);
-    o.scale.setScalar(gift.at.width);
+    o.scale.setScalar(gift.at.width * easeOut((now - gift.bornAt) / GROW_IN));
     // Resting: a gentle sway and bob, so it looks alive while it waits.
     const t = clock.elapsedTime;
     sway.current +=
@@ -119,16 +198,16 @@ export const Gift = () => {
       0,
     );
     // The lid hops on each rattle and drops back.
-    if (!lid.current) lid.current = i.getObjectByName("lid") ?? null;
-    if (lid.current)
-      lid.current.position.y =
+    const lidObj = i.getObjectByName("lid");
+    if (lidObj)
+      lidObj.position.y =
         LID_Y + JOLT.lid * k * Math.abs(Math.sin(age * JOLT.rate * 0.5));
   });
 
   return (
     <group ref={outer}>
       <group ref={inner}>
-        <Present paper={PAPERS[paper]} />
+        <Present paper={PAPERS[paper]} opened={opened} />
       </group>
     </group>
   );

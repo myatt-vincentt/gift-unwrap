@@ -31,6 +31,13 @@ export const gift = {
   hit: { t: -1e9, strength: 0, dx: 0, dy: 0 },
   /** How many rattles this box has had. */
   hits: 0,
+  /** "wrapped" until you tear it, then "open" until the next box comes. */
+  phase: "wrapped" as "wrapped" | "open",
+  /** When this box appeared, and when it was torn open (s). */
+  bornAt: 0,
+  openedAt: -1e9,
+  /** A tear asked for by a pinch-out on the screen (or a dev key). */
+  tearAsked: false,
   /** Dev only: fake palms in place of the tracker. */
   fake: null as { left: V2; right: V2 } | null,
 };
