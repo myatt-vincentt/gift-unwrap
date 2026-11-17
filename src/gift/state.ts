@@ -20,7 +20,7 @@ export const gift = {
   /** Where the box is now (smoothed), and where it is going. */
   at: { x: 0, y: -0.7, width: 0.9, roll: 0 } as Place,
   /** Which paper the current box wears (index into PAPERS). */
-  paper: 0,
+  paper: Math.floor(Math.random() * PAPERS.length),
   /** Your palms in scene units while seen; dev fake hands write here too. */
   palms: { left: null as V2 | null, right: null as V2 | null },
   /** When both hands were last seen holding (s). */
@@ -73,7 +73,12 @@ export const onPaper = (fn: (i: number) => void) => {
     paperListeners.delete(fn);
   };
 };
+export const setPaper = (i: number) => {
+  gift.paper = i;
+  paperListeners.forEach((fn) => fn(i));
+};
 export const nextPaper = () => {
-  gift.paper = (gift.paper + 1) % PAPERS.length;
-  paperListeners.forEach((fn) => fn(gift.paper));
+  // A random paper each time, never the one just used.
+  const others = PAPERS.map((_, i) => i).filter((i) => i !== gift.paper);
+  setPaper(others[Math.floor(Math.random() * others.length)]);
 };

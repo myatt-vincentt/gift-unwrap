@@ -17,7 +17,7 @@ How Gift Unwrap works, piece by piece (all in `src/gift/`).
    72 paper scraps and the lid fly off; the plain box stays, at the size it was before the pull.
 5. **The surprise** (`Puppy.tsx`, `Confetti.tsx`, `SnowCloud.tsx`): chosen when the box appears,
    never the same twice in a row. After 4.6 s the open box shrinks away and the next box grows
-   in, in the next of five papers.
+   in, in a paper picked at random from eight (never the one just used).
 
 ## Design
 

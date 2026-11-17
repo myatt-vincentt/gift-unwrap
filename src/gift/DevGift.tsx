@@ -15,7 +15,7 @@ import { useThree } from "@react-three/fiber";
 import type { PerspectiveCamera } from "three";
 
 import { viewAtHands } from "./view";
-import { gift, INSIDES, nextPaper, setInside } from "./state";
+import { gift, INSIDES, nextPaper, setInside, setPaper } from "./state";
 
 const DevGift = () => {
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
@@ -84,6 +84,7 @@ const DevGift = () => {
       place,
       scene,
       setInside,
+      setPaper,
     };
     return () => {
       window.removeEventListener("pointerdown", down);
